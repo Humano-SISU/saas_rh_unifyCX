@@ -142,3 +142,36 @@ export async function fetchPaidLeaveCreditsByEmployee(
   }
   return map
 }
+
+export type FixedCalendarDayDebits = { unpaidLeaveDays: number; unjustifiedAbsenceDays: number }
+
+/** Mapa employee_id → días a descontar en modo calendario (fixed_days_mode = 'calendar'). */
+export async function fetchFixedCalendarDayDebitsByEmployee(
+  supabase: SupabaseClient,
+  companyId: string,
+  periodFrom: string,
+  periodTo: string,
+  employeeIds: string[]
+): Promise<Map<string, FixedCalendarDayDebits>> {
+  const map = new Map<string, FixedCalendarDayDebits>()
+  if (employeeIds.length === 0) return map
+
+  const { data, error } = await supabase.rpc('payroll_fixed_calendar_day_debits', {
+    p_company_id: companyId,
+    p_from: periodFrom,
+    p_to: periodTo,
+    p_employee_ids: employeeIds,
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  for (const row of data || []) {
+    map.set(row.employee_id as string, {
+      unpaidLeaveDays: Number(row.unpaid_leave_days) || 0,
+      unjustifiedAbsenceDays: Number(row.unjustified_absence_days) || 0,
+    })
+  }
+  return map
+}

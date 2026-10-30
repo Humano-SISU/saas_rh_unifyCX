@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { requireCompanyAccess } from '../../../lib/auth/api-auth-fixed'
 import { createAdminClient } from '../../../lib/supabase/server'
 import { parseOrdinaryHoursOverrideInput } from '../../../lib/payroll/ordinary-hours-override'
+import { parseFixedDaysMode } from '../../../lib/payroll/payroll-attendance-inclusion'
 import {
   resolvePayrollDeductionMode,
   validatePayrollDeductionModeForFrequency,
@@ -188,7 +189,8 @@ async function getPayrollConfig(
         metadata.ordinary_hours_override != null && String(metadata.ordinary_hours_override).trim() !== ''
           ? Number(metadata.ordinary_hours_override)
           : null,
-      pay_overtime: metadata.pay_overtime !== false
+      pay_overtime: metadata.pay_overtime !== false,
+      fixed_days_mode: parseFixedDaysMode(metadata.fixed_days_mode)
     }
 
     return res.status(200).json({
@@ -231,7 +233,8 @@ async function upsertPayrollConfig(
       payroll_deduction_mode,
       payment_cut_dates,
       semanal_proration = 'proportional',
-      pay_overtime: pay_overtime_body
+      pay_overtime: pay_overtime_body,
+      fixed_days_mode: fixed_days_mode_body
     } = body
 
     // formula_based / custom are accepted as aliases; engine only uses custom_fields.
@@ -373,6 +376,16 @@ async function upsertPayrollConfig(
       payrollMetadata.pay_overtime = pay_overtime_body === false ? false : true
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, 'fixed_days_mode')) {
+      if (fixed_days_mode_body !== 'calendar' && fixed_days_mode_body !== 'attendance_marks') {
+        return res.status(400).json({
+          error: 'Modo de días inválido',
+          message: 'fixed_days_mode debe ser "attendance_marks" o "calendar"'
+        })
+      }
+      payrollMetadata.fixed_days_mode = fixed_days_mode_body
+    }
+
     // Validar calculation_mode
     const validCalcModes = ['daily', 'hourly', 'admin_floor']
     if (calculation_mode && !validCalcModes.includes(calculation_mode)) {
@@ -450,7 +463,8 @@ async function upsertPayrollConfig(
         meta.ordinary_hours_override != null && String(meta.ordinary_hours_override).trim() !== ''
           ? Number(meta.ordinary_hours_override)
           : null,
-      pay_overtime: meta.pay_overtime !== false
+      pay_overtime: meta.pay_overtime !== false,
+      fixed_days_mode: parseFixedDaysMode(meta.fixed_days_mode)
     }
 
     return res.status(200).json({

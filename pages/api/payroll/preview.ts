@@ -30,6 +30,8 @@ import { resolveEffectivePayType, parseCompanyCalculationMode, isHourBasedPayTyp
 import {
   hasValidPayrollAttendanceRecords,
   resolveFixedDaysWorkedForPayroll,
+  resolveFixedDaysWorkedCalendar,
+  parseFixedDaysMode,
   shouldIncludeEmployeeInPayrollPreview,
 } from '../../../lib/payroll/payroll-attendance-inclusion'
 import {
@@ -56,7 +58,11 @@ import {
 } from '../../../lib/attendance/resolve-schedule-batch'
 import { isRestDayForDate } from '../../../lib/attendance/schedule-times'
 import type { LegacyScheduleColumns } from '../../../lib/attendance/shift-config'
-import { fetchPaidLeaveCreditsByEmployee } from '../../../lib/leave/paid-leave-days'
+import {
+  fetchPaidLeaveCreditsByEmployee,
+  fetchFixedCalendarDayDebitsByEmployee,
+  type FixedCalendarDayDebits,
+} from '../../../lib/leave/paid-leave-days'
 import {
   shouldPreservePayrollLineOnPreview,
   buildFixedPlanillaRowFromPersistedLine,
@@ -192,6 +198,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     )
     const incompleteRecordDefaultHours = (payrollConfig as any)?.incomplete_record_default_hours ?? payrollMetadata?.incomplete_record_default_hours ?? null
     const semanalProration = (payrollMetadata?.semanal_proration || 'proportional') as 'proportional' | 'fixed'
+    const fixedDaysMode = parseFixedDaysMode((payrollMetadata as Record<string, unknown>)?.fixed_days_mode)
 
     if (paymentFrequency === 'weekly') {
       if (![1, 2, 3, 4].includes(quincenaNum)) {
@@ -329,7 +336,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const { data: employees, error: empError } = await salaryClient
       .from('employees')
       .select(`
-        id, name, dni, employee_code, base_salary, bank_name, bank_account, status, department_id, pay_type, attendance_required, pay_overtime, work_schedule_id, position, role,
+        id, name, dni, employee_code, base_salary, bank_name, bank_account, status, department_id, pay_type, attendance_required, pay_overtime, work_schedule_id, position, role, hire_date, termination_date,
         departments:department_id(name),
         work_schedules:work_schedule_id(monday_start, tuesday_start, wednesday_start, thursday_start, friday_start, saturday_start, sunday_start)
       `)
@@ -404,6 +411,25 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(500).json({
           error: 'Error obteniendo permisos pagados para nómina',
           details: paidLeaveErr instanceof Error ? paidLeaveErr.message : String(paidLeaveErr),
+        })
+      }
+    }
+
+    let calendarDebitsByEmployee = new Map<string, FixedCalendarDayDebits>()
+    if (fixedDaysMode === 'calendar' && employeeIds.length > 0) {
+      try {
+        calendarDebitsByEmployee = await fetchFixedCalendarDayDebitsByEmployee(
+          supabase,
+          companyId,
+          fechaInicio,
+          fechaFin,
+          employeeIds
+        )
+      } catch (debitsErr) {
+        console.error('Error obteniendo ausencias y permisos sin goce:', debitsErr)
+        return res.status(500).json({
+          error: 'Error obteniendo ausencias y permisos sin goce para nómina',
+          details: debitsErr instanceof Error ? debitsErr.message : String(debitsErr),
         })
       }
     }
@@ -709,7 +735,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
 
         const paidLeaveCredits = paidLeaveCreditsByEmployee.get(emp.id) || 0
-        const { daysWorked: days_worked, includedWithoutAttendance, paidLeaveDays } =
+        let { daysWorked: days_worked, includedWithoutAttendance, paidLeaveDays } =
           resolveFixedDaysWorkedForPayroll(
             effectivePayType,
             emp.attendance_required,
@@ -717,6 +743,22 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             diasPeriodo,
             paidLeaveCredits
           )
+        let calendarDays: ReturnType<typeof resolveFixedDaysWorkedCalendar> | null = null
+        if (fixedDaysMode === 'calendar') {
+          const debits = calendarDebitsByEmployee.get(emp.id)
+          calendarDays = resolveFixedDaysWorkedCalendar({
+            effectivePayType,
+            attendanceRequired: emp.attendance_required,
+            diasPeriodo,
+            periodFrom: fechaInicio,
+            periodTo: fechaFin,
+            hireDate: emp.hire_date,
+            terminationDate: emp.termination_date,
+            unjustifiedAbsenceDays: debits?.unjustifiedAbsenceDays ?? 0,
+            unpaidLeaveDays: debits?.unpaidLeaveDays ?? 0,
+          })
+          days_worked = calendarDays.daysWorked
+        }
         const days_absent = Math.max(0, diasPeriodo - days_worked)
 
         // Capa 3: Días Extra/Especial (festivo o descanso con asistencia)
@@ -843,6 +885,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
               }
             : {}),
           ...(includedWithoutAttendance ? { included_without_attendance: true } : {}),
+          ...(calendarDays
+            ? {
+                fixed_days_mode: 'calendar',
+                unjustified_absence_days: calendarDays.unjustifiedAbsenceDays,
+                unpaid_leave_days: calendarDays.unpaidLeaveDays,
+                days_outside_contract: calendarDays.daysOutsideContract,
+              }
+            : {}),
           ...(paidLeaveDays > 0
             ? {
                 paid_leave_days: paidLeaveDays,
