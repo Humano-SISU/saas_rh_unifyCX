@@ -33,6 +33,7 @@ const METADATA_SKIP_KEYS = new Set([
   'unjustified_absence_days',
   'unpaid_leave_days',
   'days_outside_contract',
+  'days_extra_pay',
   'days_adjusted_at',
   'days_adjusted_by',
   'days_adjusted_reason',

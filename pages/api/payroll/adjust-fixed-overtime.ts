@@ -36,6 +36,7 @@ import {
   payrollStatutoryYearUnavailable,
 } from '../../../lib/payroll/statutory-api-guard'
 import { createEmployeeSalaryClient } from '../../../lib/security/employee-data-access'
+import { readDaysExtraPay } from '../../../lib/payroll/days-extra-pay'
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -373,7 +374,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       overrideBreakdown,
     })
 
-    let totalEarnings = dayGross + otResolved.pay
+    // Holiday/rest-day pay was set by the preview; keep it when overtime is adjusted.
+    let totalEarnings = dayGross + otResolved.pay + readDaysExtraPay(lineMeta)
     if (!isFinite(totalEarnings) || isNaN(totalEarnings)) totalEarnings = 0
 
     const { data: plansData } = await supabase

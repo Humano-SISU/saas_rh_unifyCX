@@ -56,6 +56,8 @@ export interface EmployeeReceiptInput {
   overtime_pay?: number
   /** Horas extras del período (AHC / ajuste) para etiqueta del comprobante */
   horas_extras?: number
+  /** Pago adicional por feriado o descanso trabajado, incluido en el bruto */
+  days_extra_pay?: number
   /**
    * Desglose diario HE (AHC) — hoja 2 del recibo cuando hay filas.
    * No afecta la planilla consolidada.
@@ -108,6 +110,7 @@ type ReceiptLayout = {
   showEarnings: boolean
   hasSeptimoDia: boolean
   hasOvertimePay: boolean
+  hasDaysExtraPay: boolean
   showBaseSalary: boolean
   showDeductions: boolean
   visibleStatutory: number
@@ -146,8 +149,10 @@ function buildReceiptLayout(
   const hasSeptimoDia = (record.septimo_dia ?? 0) > 0 && sectionVisible('septimo_dia', options)
   const hasOvertimePay =
     (record.overtime_pay ?? 0) > 0 && sectionVisible('overtime_pay', options)
+  const hasDaysExtraPay =
+    (record.days_extra_pay ?? 0) > 0 && sectionVisible('days_extra_pay', options)
   const showBaseSalary = sectionVisible('base_salary', options)
-  const showEarnings = showBaseSalary || hasSeptimoDia || hasOvertimePay
+  const showEarnings = showBaseSalary || hasSeptimoDia || hasOvertimePay || hasDaysExtraPay
   const showCustomDeductionLines = shouldShowCustomDeductionLines(record, options)
   const customDeductionsCount = showCustomDeductionLines ? record.custom_deductions?.length || 0 : 0
   const visibleStatutory =
@@ -174,7 +179,10 @@ function buildReceiptLayout(
   }
   if (showEarnings) {
     const earningsRows =
-      (showBaseSalary ? 1 : 0) + (hasSeptimoDia ? 1 : 0) + (hasOvertimePay ? 1 : 0)
+      (showBaseSalary ? 1 : 0) +
+      (hasSeptimoDia ? 1 : 0) +
+      (hasOvertimePay ? 1 : 0) +
+      (hasDaysExtraPay ? 1 : 0)
     const earningsHeight = TABLE_HEADER_H + PAD + earningsRows * ROW_H + PAD
     y += 14 + Math.max(earningsHeight, 36) + 12
   }
@@ -215,6 +223,7 @@ function buildReceiptLayout(
     showEarnings,
     hasSeptimoDia,
     hasOvertimePay,
+    hasDaysExtraPay,
     showBaseSalary,
     showDeductions,
     visibleStatutory,
@@ -633,6 +642,12 @@ export async function generateEmployeeReceiptPDF(
           items.push({
             label: overtimePayReceiptLabel(record, options),
             amount: formatAmount(record.overtime_pay!),
+          })
+        }
+        if (layout.hasDaysExtraPay) {
+          items.push({
+            label: fieldLabel('days_extra_pay', 'Feriado/descanso trabajado', options),
+            amount: formatAmount(record.days_extra_pay!),
           })
         }
 

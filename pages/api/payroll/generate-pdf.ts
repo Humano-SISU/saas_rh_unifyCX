@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 // import { createClient } from '../../../lib/supabase/server'
 import { requireUser } from '../../../lib/auth/requireUser'
 import { generateConsolidatedPayrollPDF, type PlanillaItem } from '../../../lib/payroll/report'
+import { readDaysExtraPay } from '../../../lib/payroll/days-extra-pay'
 import { normalizeCountryCode } from '../../../lib/country/supported'
 import { resolvePayrollDisplayCurrency } from '../../../lib/country/display-money'
 import {
@@ -114,6 +115,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? {
               overtime_pay:
                 Math.round(Number(row.overtime_pay ?? row.metadata?.overtime_pay) * 100) / 100,
+            }
+          : {}),
+        ...(readDaysExtraPay({ days_extra_pay: row.days_extra_pay ?? row.metadata?.days_extra_pay }) > 0
+          ? {
+              days_extra_pay: readDaysExtraPay({
+                days_extra_pay: row.days_extra_pay ?? row.metadata?.days_extra_pay,
+              }),
             }
           : {}),
       }

@@ -190,7 +190,8 @@ async function getPayrollConfig(
           ? Number(metadata.ordinary_hours_override)
           : null,
       pay_overtime: metadata.pay_overtime !== false,
-      fixed_days_mode: parseFixedDaysMode(metadata.fixed_days_mode)
+      fixed_days_mode: parseFixedDaysMode(metadata.fixed_days_mode),
+      pay_days_extra: metadata.pay_days_extra === true
     }
 
     return res.status(200).json({
@@ -234,7 +235,8 @@ async function upsertPayrollConfig(
       payment_cut_dates,
       semanal_proration = 'proportional',
       pay_overtime: pay_overtime_body,
-      fixed_days_mode: fixed_days_mode_body
+      fixed_days_mode: fixed_days_mode_body,
+      pay_days_extra: pay_days_extra_body
     } = body
 
     // formula_based / custom are accepted as aliases; engine only uses custom_fields.
@@ -386,6 +388,10 @@ async function upsertPayrollConfig(
       payrollMetadata.fixed_days_mode = fixed_days_mode_body
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, 'pay_days_extra')) {
+      payrollMetadata.pay_days_extra = pay_days_extra_body === true
+    }
+
     // Validar calculation_mode
     const validCalcModes = ['daily', 'hourly', 'admin_floor']
     if (calculation_mode && !validCalcModes.includes(calculation_mode)) {
@@ -464,7 +470,8 @@ async function upsertPayrollConfig(
           ? Number(meta.ordinary_hours_override)
           : null,
       pay_overtime: meta.pay_overtime !== false,
-      fixed_days_mode: parseFixedDaysMode(meta.fixed_days_mode)
+      fixed_days_mode: parseFixedDaysMode(meta.fixed_days_mode),
+      pay_days_extra: meta.pay_days_extra === true
     }
 
     return res.status(200).json({
