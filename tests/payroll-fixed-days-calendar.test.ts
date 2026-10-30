@@ -100,7 +100,7 @@ describe('flag off keeps attendance_marks behavior', () => {
 
 describe('payroll_fixed_calendar_day_debits migration', () => {
   const sql = readFileSync(
-    join(__dirname, '../supabase/migrations/20261029120000_payroll_fixed_calendar_day_debits.sql'),
+    join(__dirname, '../supabase/migrations/20261029130000_payroll_fixed_calendar_day_debits.sql'),
     'utf8'
   )
 
