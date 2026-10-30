@@ -13,6 +13,7 @@ import {
   getWeeklyPeriodDates,
 } from './period-dates'
 import type { PlanillaItem } from './report'
+import { readDaysExtraPay } from './days-extra-pay'
 import {
   isExactHourlyPlanillaTablePayType,
   isMutablePayrollRunStatus,
@@ -246,6 +247,7 @@ export async function loadPlanillaFromRun(
         ...(Number.isFinite(Number(metadata.overtime_pay)) && Number(metadata.overtime_pay) > 0
           ? { overtime_pay: Math.round(Number(metadata.overtime_pay) * 100) / 100 }
           : {}),
+        ...(readDaysExtraPay(metadata) > 0 ? { days_extra_pay: readDaysExtraPay(metadata) } : {}),
       } satisfies PlanillaItem
     })
   )

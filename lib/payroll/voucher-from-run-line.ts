@@ -2,6 +2,7 @@ import { calculatePayroll } from '../payroll-client-specific'
 import type { EmployeeReceiptInput } from './receipt'
 import { buildCustomDeductionsList } from './custom-deductions-list'
 import { resolveDisplayNet } from './resolve-display-net'
+import { readDaysExtraPay } from './days-extra-pay'
 import { loadOvertimeDailyBreakdownSheet } from './overtime-daily-breakdown'
 import { resolvePlanillaDaysWorked } from './planilla-from-run'
 import { resolvePlanillaRowPayType } from './resolve-effective-pay-type'
@@ -125,6 +126,7 @@ export async function buildVoucherFromRunLine(
     Number.isFinite(overtimePayRaw) && overtimePayRaw > 0
       ? Math.round(overtimePayRaw * 100) / 100
       : 0
+  const daysExtraPay = readDaysExtraPay(lineMetadata)
   const horasExtrasRaw = Number(lineMetadata.horas_extras)
   const horasExtras =
     Number.isFinite(horasExtrasRaw) && horasExtrasRaw > 0
@@ -132,7 +134,7 @@ export async function buildVoucherFromRunLine(
       : 0
   const baseSalaryForReceipt = Math.max(
     0,
-    Math.round((brutoTotal - (septimoDia > 0 ? septimoDia : 0) - overtimePay) * 100) / 100
+    Math.round((brutoTotal - (septimoDia > 0 ? septimoDia : 0) - overtimePay - daysExtraPay) * 100) / 100
   )
 
   const monthlyFromMeta = Number(lineMetadata.base_salary_used)
@@ -178,6 +180,7 @@ export async function buildVoucherFromRunLine(
       septimo_dia: septimoDia > 0 ? septimoDia : undefined,
       overtime_pay: overtimePay > 0 ? overtimePay : undefined,
       horas_extras: horasExtras > 0 ? horasExtras : undefined,
+      days_extra_pay: daysExtraPay > 0 ? daysExtraPay : undefined,
       overtime_daily: overtimeDaily,
       income_tax: lineData.eff_isr || 0,
       professional_tax: lineData.eff_rap || 0,

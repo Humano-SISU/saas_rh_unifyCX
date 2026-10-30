@@ -58,6 +58,7 @@ import {
 } from '../../../lib/attendance/resolve-schedule-batch'
 import { isRestDayForDate } from '../../../lib/attendance/schedule-times'
 import type { LegacyScheduleColumns } from '../../../lib/attendance/shift-config'
+import { computeDaysExtraPay, resolvePayDaysExtra } from '../../../lib/payroll/days-extra-pay'
 import {
   fetchPaidLeaveCreditsByEmployee,
   fetchFixedCalendarDayDebitsByEmployee,
@@ -199,6 +200,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     const incompleteRecordDefaultHours = (payrollConfig as any)?.incomplete_record_default_hours ?? payrollMetadata?.incomplete_record_default_hours ?? null
     const semanalProration = (payrollMetadata?.semanal_proration || 'proportional') as 'proportional' | 'fixed'
     const fixedDaysMode = parseFixedDaysMode((payrollMetadata as Record<string, unknown>)?.fixed_days_mode)
+    const payDaysExtra = resolvePayDaysExtra(payrollMetadata as Record<string, unknown>)
 
     if (paymentFrequency === 'weekly') {
       if (![1, 2, 3, 4].includes(quincenaNum)) {
@@ -528,11 +530,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         )
         const hasValidRecord = hasValidPayrollAttendanceRecords(allEmpRecords)
         const effectivePayType = resolveEffectivePayType(emp.pay_type, companyCalculationMode)
+        // Only in calendar mode: under attendance_marks other companies keep today's roster.
+        const hasPaidLeaveCredits =
+          fixedDaysMode === 'calendar' && (paidLeaveCreditsByEmployee.get(emp.id) || 0) > 0
         const include = shouldIncludeEmployeeInPayrollPreview(
           emp.attendance_required,
           effectivePayType,
           hasValidRecord,
-          periodHasAttendanceRecords
+          periodHasAttendanceRecords,
+          hasPaidLeaveCredits
         )
 
         if (include && effectivePayType === 'fixed' && emp.attendance_required === false && !hasValidRecord) {
@@ -800,7 +806,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           ahcBreakdown: ahcOvertimeBreakdownByEmployee[emp.id] || emptyOvertimeBreakdown(),
           overrideBreakdown: readOvertimeOverrideFromMetadata(prevMeta),
         })
-        let total_earnings = dayGross + otResolved.pay
+        const days_extra_pay = payDaysExtra ? computeDaysExtraPay(days_extra, base_salary) : 0
+        let total_earnings = dayGross + otResolved.pay + days_extra_pay
 
         if (!isFinite(total_earnings) || isNaN(total_earnings)) {
           console.error(`❌ ERROR - total_earnings inválido para empleado ${emp.name}:`, total_earnings)
@@ -884,6 +891,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
                 notes_extra: `${days_extra} día(s) Extra/Especial (festivo/descanso)`
               }
             : {}),
+          ...(days_extra_pay > 0 ? { days_extra_pay } : {}),
           ...(includedWithoutAttendance ? { included_without_attendance: true } : {}),
           ...(calendarDays
             ? {
@@ -975,6 +983,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           notes_extra: days_extra > 0 ? `${days_extra} día(s) Extra/Especial (festivo/descanso)` : undefined,
           horas_extras: otResolved.hoursTotal,
           overtime_pay: otResolved.pay > 0 ? otResolved.pay : undefined,
+          days_extra_pay: days_extra_pay > 0 ? days_extra_pay : undefined,
           total_earnings: Math.round(total_earnings * 100) / 100,
           IHSS: Math.round(IHSS * 100) / 100,
           RAP: Math.round(RAP * 100) / 100,

@@ -113,6 +113,12 @@ export function buildVoucherPreviewPayload(
       amount: record.overtime_pay!,
     })
   }
+  if ((record.days_extra_pay ?? 0) > 0 && sectionVisible('days_extra_pay', options)) {
+    earnings.push({
+      label: fieldLabel('days_extra_pay', 'Feriado/descanso trabajado', options),
+      amount: record.days_extra_pay!,
+    })
+  }
 
   const dedLabels = statutoryUiLabels(options?.countryCode)
   const deductions: VoucherPreviewAmountLine[] = []

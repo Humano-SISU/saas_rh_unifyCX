@@ -69,6 +69,8 @@ export interface PlanillaItem {
   horas_extras?: number
   /** Monto de HE pagado (incluido en total_earnings); columna del bloque ingresos */
   overtime_pay?: number
+  /** Pago por feriado o descanso trabajado (incluido en total_earnings) */
+  days_extra_pay?: number
 }
 
 /**
@@ -414,6 +416,7 @@ export async function generateConsolidatedPayrollPDF(
 
         const hasSeptimoDia = isHourly && planillaData.some((r) => (r.septimo_dia ?? 0) > 0)
         const hasOvertimePay = planillaData.some((r) => (r.overtime_pay ?? 0) > 0)
+        const hasDaysExtraPay = planillaData.some((r) => (r.days_extra_pay ?? 0) > 0)
         const customWithValues = collectCustomFieldsWithPdfValues(
           customFieldsConfig as PayrollPdfCustomFieldsConfig | undefined,
           planillaData
@@ -442,6 +445,7 @@ export async function generateConsolidatedPayrollPDF(
           if (id === 'base_salary' || id === 'biweekly_salary') return isHourly ? 65 : 70
           if (id === 'septimo_dia') return 55
           if (id === 'overtime_pay') return isHourly ? 50 : 55
+          if (id === 'days_extra_pay') return 55
           if (id === 'gross_salary' || id === 'total_deductions' || id === 'net_salary') return 58
           if (id === 'ihss' || id === 'rap' || id === 'isr') return 38
           if (id.startsWith('custom_')) return 42
@@ -529,6 +533,13 @@ export async function generateConsolidatedPayrollPDF(
                 value: (row) => formatCurrency(row.overtime_pay ?? 0),
                 number: (row) => row.overtime_pay ?? 0,
               }
+            case 'days_extra_pay':
+              return {
+                isText: false,
+                totalFormat: 'currency',
+                value: (row) => formatCurrency(row.days_extra_pay ?? 0),
+                number: (row) => row.days_extra_pay ?? 0,
+              }
             case 'gross_salary':
               return {
                 isText: false,
@@ -588,6 +599,7 @@ export async function generateConsolidatedPayrollPDF(
           isHourly,
           hasSeptimoDia,
           hasOvertimePay,
+          hasDaysExtraPay,
           visibleColumnIds,
           columnLabels,
           columnOrder,
