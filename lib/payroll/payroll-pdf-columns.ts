@@ -23,6 +23,8 @@ export interface BuildPayrollPdfColumnsInput {
   isHourly: boolean
   hasSeptimoDia: boolean
   hasOvertimePay: boolean
+  /** Holiday / rest-day worked pay (metadata.days_extra_pay) present in any row */
+  hasDaysExtraPay?: boolean
   visibleColumnIds?: Set<string> | null
   columnLabels?: Record<string, string>
   /** Orders custom_* within earnings / deductions blocks only. */
@@ -169,6 +171,7 @@ export function buildPayrollPdfColumnMeta(input: BuildPayrollPdfColumnsInput): P
     isHourly,
     hasSeptimoDia,
     hasOvertimePay,
+    hasDaysExtraPay = false,
     visibleColumnIds = null,
     columnLabels = {},
     columnOrder = null,
@@ -215,6 +218,9 @@ export function buildPayrollPdfColumnMeta(input: BuildPayrollPdfColumnsInput): P
   }
   if (hasOvertimePay) {
     push('overtime_pay', 'Pago HE')
+  }
+  if (hasDaysExtraPay) {
+    push('days_extra_pay', 'Feriado/descanso trab.')
   }
 
   if (customFieldsConfig) {
