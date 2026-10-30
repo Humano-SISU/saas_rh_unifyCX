@@ -12,6 +12,7 @@ import {
   parseFixedDaysMode,
   resolveFixedDaysWorkedCalendar,
   resolveFixedDaysWorkedForPayroll,
+  shouldIncludeEmployeeInPayrollPreview,
 } from '../lib/payroll/payroll-attendance-inclusion'
 
 const base = {
@@ -112,5 +113,21 @@ describe('payroll_fixed_calendar_day_debits migration', () => {
     assert.match(sql, /hire_date/)
     assert.match(sql, /termination_date/)
     assert.match(sql, /lr\.status = 'approved'/)
+  })
+})
+
+describe('paid-leave-only salaried employees', () => {
+  it('are included when they have paid leave credits and no marks', () => {
+    assert.equal(shouldIncludeEmployeeInPayrollPreview(true, 'fixed', false, true, true), true)
+  })
+
+  it('stay excluded with neither marks nor paid leave (as today)', () => {
+    assert.equal(shouldIncludeEmployeeInPayrollPreview(true, 'fixed', false, true, false), false)
+    assert.equal(shouldIncludeEmployeeInPayrollPreview(true, 'fixed', false, true), false)
+  })
+
+  it('get 15 paid days in calendar mode when leave covers the whole period', () => {
+    // Paid leave is never a debit, so the full fortnight is paid
+    assert.equal(resolveFixedDaysWorkedCalendar(base).daysWorked, 15)
   })
 })

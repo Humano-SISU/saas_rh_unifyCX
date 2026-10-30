@@ -530,11 +530,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         )
         const hasValidRecord = hasValidPayrollAttendanceRecords(allEmpRecords)
         const effectivePayType = resolveEffectivePayType(emp.pay_type, companyCalculationMode)
+        // Only in calendar mode: under attendance_marks other companies keep today's roster.
+        const hasPaidLeaveCredits =
+          fixedDaysMode === 'calendar' && (paidLeaveCreditsByEmployee.get(emp.id) || 0) > 0
         const include = shouldIncludeEmployeeInPayrollPreview(
           emp.attendance_required,
           effectivePayType,
           hasValidRecord,
-          periodHasAttendanceRecords
+          periodHasAttendanceRecords,
+          hasPaidLeaveCredits
         )
 
         if (include && effectivePayType === 'fixed' && emp.attendance_required === false && !hasValidRecord) {
