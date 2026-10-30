@@ -72,6 +72,23 @@ describe('buildCustomDeductionsList', () => {
     assert.equal(names.some((n) => n.includes('edited')), false)
   })
 
+  it('ignores calendar-mode day counts stored on the line', async () => {
+    const list = await buildCustomDeductionsList(
+      'company-test',
+      {
+        fixed_days_mode: 'calendar',
+        unjustified_absence_days: 1,
+        unpaid_leave_days: 2,
+        days_outside_contract: 5,
+        comedor: 75,
+      },
+      7500,
+      mockSupabase(null)
+    )
+
+    assert.deepEqual(list.map((item) => item.name), ['Comedor'])
+  })
+
   it('reads deduction amount from metadata when formula calc is zero', async () => {
     const supabase = mockSupabase({
       deduccion_especial: {
