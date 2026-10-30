@@ -33,12 +33,15 @@ export function shouldIncludeEmployeeInPayrollPreview(
   attendanceRequired: boolean | null | undefined,
   effectivePayType: EffectivePayType,
   hasValidRecords: boolean,
-  periodHasAttendanceRecords: boolean
+  periodHasAttendanceRecords: boolean,
+  hasPaidLeaveCredits = false
 ): boolean {
   if (!periodHasAttendanceRecords) return true
   // Hour-based (exact or admin floor): always include (0 hours if no marks)
   if (effectivePayType === 'hourly' || effectivePayType === 'admin_floor') return true
   if (isFixedAttendanceExempt(effectivePayType, attendanceRequired)) return true
+  // Salaried on paid leave (e.g. maternity) has no marks but is still owed pay
+  if (effectivePayType === 'fixed' && hasPaidLeaveCredits) return true
   return hasValidRecords
 }
 
