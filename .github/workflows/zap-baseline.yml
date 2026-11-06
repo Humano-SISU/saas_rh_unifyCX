@@ -1,0 +1,35 @@
+name: ZAP Baseline Scan
+
+# Escaneo pasivo de OWASP ZAP: recorre el sitio y revisa las respuestas, sin enviar ataques.
+# Objetivo: variable del repo ZAP_TARGET_URL (Settings > Secrets and variables > Actions > Variables).
+# Sin la variable, el job se salta. Reporte como artefacto "zap-baseline-report".
+# No falla ni abre issues mientras se revisan falsos positivos; reglas en .zap/rules.tsv.
+
+"on":
+  schedule:
+    - cron: '0 12 * * 1' # Lunes 06:00 America/Tegucigalpa
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    name: 🛡️ ZAP Baseline
+    runs-on: ubuntu-latest
+    if: vars.ZAP_TARGET_URL != ''
+    timeout-minutes: 20
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v6
+
+      - name: 🛡️ Run ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ vars.ZAP_TARGET_URL }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: '-m 3'
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-baseline-report
