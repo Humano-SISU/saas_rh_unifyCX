@@ -1,0 +1,4 @@
+# ZAP baseline rules. One rule per line, tab-separated:
+# <rule id>	<IGNORE|WARN|FAIL>	(<reason>)
+# Add a rule only after reviewing the alert in a scan report, and write why.
+# Rule ids: https://www.zaproxy.org/docs/alerts/
