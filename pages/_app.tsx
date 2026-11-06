@@ -2,7 +2,7 @@ import React, { createContext } from 'react'
 import { AppProps } from 'next/app'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/router'
-import { Montserrat } from 'next/font/google'
+import localFont from 'next/font/local'
 import { ToastContainer } from '../lib/toast'
 import { cn } from '../lib/utils'
 import {
@@ -21,13 +21,15 @@ const AppAuthenticatedProviders = dynamic(
   { ssr: true }
 )
 
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+// Self-hosted (Google Fonts latin subset, variable weight) so the build does not
+// depend on fetching fonts.googleapis.com, which failed intermittently in CI.
+const montserrat = localFont({
+  src: '../styles/fonts/montserrat-latin-variable.woff2',
+  weight: '400 700',
   display: 'swap',
   preload: true,
   variable: '--font-montserrat',
-  adjustFontFallback: true,
+  adjustFontFallback: 'Arial',
 })
 
 // Load environment variables at the top level
